@@ -1,0 +1,61 @@
+
+name: Build Desktop App
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        ref: main
+    
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.9'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pyinstaller
+        pip install -r requirements.txt
+    
+    - name: Build with PyInstaller
+      run: |
+        pyinstaller --clean ^
+                    --onefile ^
+                    --windowed ^
+                    --icon=logo.ico ^
+                    --add-data "logo.ico;." ^
+                    --hidden-import PyQt6.QtWebEngineCore ^
+                    --name "codev.ne" ^
+                    main.py
+    
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${ secrets.GITHUB_TOKEN }
+      with:
+        tag_name: ${ github.sha }
+        release_name: "codev.ne - ${{ github.sha }}"
+        body: "Built from main branch"
+        draft: false
+        prerelease: false
+    
+    - name: Upload Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${ secrets.GITHUB_TOKEN }
+      with:
+        upload_url: ${ steps.create_release.outputs.upload_url }
+        asset_path: ./dist/codev.ne.exe
+        asset_name: codev.ne.exe
+        asset_content_type: application/octet-stream
